@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#3b82f6">
+<title>Мои таблетки</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, Roboto, Arial, sans-serif;
+    margin: 0; padding: 12px 12px 80px;
+    background: #f1f5f9; color: #1e293b;
+  }
+  h1 { font-size: 20px; margin: 4px 0 12px; }
+  .day-nav {
+    display: flex; gap: 6px; overflow-x: auto;
+    padding-bottom: 8px; margin-bottom: 12px;
+  }
+  .day-nav button {
+    flex: 0 0 auto; padding: 8px 14px; border-radius: 20px;
+    border: none; background: #fff; color: #475569;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .day-nav button.active { background: #3b82f6; color: #fff; }
+  .card {
+    background: #fff; border-radius: 14px; padding: 14px 16px;
+    margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    display: flex; align-items: center; gap: 12px;
+    transition: opacity .2s;
+  }
+  .card.done { opacity: .55; }
+  .card .info { flex: 1; }
+  .card .name { font-weight: 700; font-size: 16px; }
+  .card .time { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .check {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 2px solid #cbd5e1; background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; color: transparent; cursor: pointer;
+    flex-shrink: 0; transition: all .15s;
+  }
+  .check.on { background: #22c55e; border-color: #22c55e; color: #fff; }
+  .notes-title { font-size: 14px; font-weight: 700; margin: 18px 0 6px; color: #475569; }
+  textarea {
+    width: 100%; min-height: 90px; border-radius: 12px;
+    border: 1px solid #cbd5e1; padding: 10px; font-size: 15px;
+    font-family: inherit; resize: vertical; background: #fff;
+  }
+  .progress {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #fff; padding: 10px 16px;
+    box-shadow: 0 -2px 10px rgba(0,0,0,.06);
+    font-size: 14px; font-weight: 600; color: #475569;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .bar { flex: 1; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+  .bar > div { height: 100%; background: #22c55e; width: 0; transition: width .3s; }
+</style>
+</head>
+<body>
+
+<h1>💊 Мои таблетки</h1>
+
+<div class="day-nav" id="dayNav"></div>
+
+<div id="list"></div>
+
+<div class="notes-title">📝 Заметки (самочувствие, давление, пульс)</div>
+<textarea id="notes" placeholder="Например: давление 120/80, пульс 72, спала хорошо..."></textarea>
+
+<div class="progress">
+  <span id="progressText">0 / 4</span>
+  <div class="bar"><div id="barFill"></div></div>
+</div>
+
+<script>
+const MEDS = [
+  { key: 'tir',  name: 'Л-Тироксин',        time: '⏰ за 30 мин до завтрака' },
+  { key: 'iod',  name: 'Йодомарин',          time: '⏰ за 30 мин до завтрака' },
+  { key: 'fol',  name: 'Фолиевая кислота',   time: '🍽 во время завтрака' },
+  { key: 'vitd', name: 'Форте Детрим (D)',   time: '⏰ через 30 мин после завтрака' },
+];
+const DAYS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const today = (new Date().getDay() + 6) % 7; // Пн=0
+let current = today;
+
+const dayNav = document.getElementById('dayNav');
+const listEl = document.getElementById('list');
+const notes = document.getElementById('notes');
+
+function key(med, day) { return `pills2_${med}_${day}`; }
+function notesKey(day) { return `notes2_${day}`; }
+
+// Кнопки дней
+DAYS.forEach((d, i) => {
+  const b = document.createElement('button');
+  b.textContent = d;
+  if (i === today) b.textContent += ' •';
+  b.onclick = () => { current = i; render(); };
+  dayNav.appendChild(b);
+});
+
+function render() {
+  // подсветка дня
+  [...dayNav.children].forEach((b, i) => b.classList.toggle('active', i === current));
+
+  // карточки лекарств
+  listEl.innerHTML = '';
+  MEDS.forEach(med => {
+    const k = key(med.key, current);
+    const done = localStorage.getItem(k) === '1';
+    const card = document.createElement('div');
+    card.className = 'card' + (done ? ' done' : '');
+    card.innerHTML = `
+      <div class="info">
+        <div class="name">${med.name}</div>
+        <div class="time">${med.time}</div>
+      </div>
+      <div class="check ${done ? 'on' : ''}">✓</div>
+    `;
+    card.onclick = () => {
+      const newVal = localStorage.getItem(k) === '1' ? '0' : '1';
+      localStorage.setItem(k, newVal);
+      if (navigator.vibrate) navigator.vibrate(30);
+      render();
+    };
+    listEl.appendChild(card);
+  });
+
+  // заметки
+  notes.value = localStorage.getItem(notesKey(current)) || '';
+
+  // прогресс
+  const done = MEDS.filter(m => localStorage.getItem(key(m.key, current)) === '1').length;
+  document.getElementById('progressText').textContent = `${done} / ${MEDS.length}`;
+  document.getElementById('barFill').style.width = (done / MEDS.length * 100) + '%';
+}
+
+notes.addEventListener('input', () => {
+  localStorage.setItem(notesKey(current), notes.value);
+});
+
+render();
+</script>
+</body>
+</html>
